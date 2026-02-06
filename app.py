@@ -83,7 +83,30 @@ def get_frigate_auth_token(frigate_url, username=None, password=None):
 
     except Exception as e:
         logger.error(f"Failed to authenticate with Frigate: {e}")
+        # If login fails but we have credentials, return None to indicate we should try without token
+        # The caller can then try Basic Auth or the request will fail with 401
         return None
+
+
+def get_auth_headers(frigate_url, username=None, password=None):
+    """Get headers for Frigate API requests, supporting both JWT and Basic Auth."""
+    headers = {}
+
+    # Try to get JWT token first
+    token = get_frigate_auth_token(frigate_url, username, password)
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+        return headers
+
+    # If no token but we have credentials, try Basic Auth (for reverse proxies)
+    if username and password:
+        import base64
+
+        credentials = base64.b64encode(f"{username}:{password}".encode()).decode()
+        headers["Authorization"] = f"Basic {credentials}"
+        logger.info("Using Basic Auth (no JWT token available)")
+
+    return headers
 
 
 def format_timestamp(ts_str):
@@ -126,11 +149,8 @@ def process_timelapse(
         # Clean URL
         frigate_url = frigate_url.rstrip("/")
 
-        # Get authentication token (from parameters or environment)
-        auth_token = get_frigate_auth_token(frigate_url, username, password)
-        headers = {}
-        if auth_token:
-            headers["Authorization"] = f"Bearer {auth_token}"
+        # Get authentication headers (JWT or Basic Auth)
+        headers = get_auth_headers(frigate_url, username, password)
 
         if stop_event.is_set():
             raise Exception("Cancelled")
@@ -348,16 +368,9 @@ def get_cameras():
     )
 
     try:
-        # Get auth token if credentials provided
-        auth_token = get_frigate_auth_token(url, username, password)
-        logger.info(f"Auth token obtained: {bool(auth_token)}")
-
-        headers = {}
-        if auth_token:
-            headers["Authorization"] = f"Bearer {auth_token}"
-            logger.info("Using Bearer token for authentication")
-        else:
-            logger.info("No auth token, proceeding without authentication")
+        # Get auth headers (JWT or Basic Auth)
+        headers = get_auth_headers(url, username, password)
+        logger.info(f"Auth headers present: {bool(headers)}")
 
         # Attempt to get config to list cameras
         resp = requests.get(f"{url}/api/config", headers=headers, timeout=10)
@@ -388,11 +401,8 @@ def get_exports():
     username = data.get("username")
     password = data.get("password")
     try:
-        # Get auth token if credentials provided
-        auth_token = get_frigate_auth_token(url, username, password)
-        headers = {}
-        if auth_token:
-            headers["Authorization"] = f"Bearer {auth_token}"
+        # Get auth headers (JWT or Basic Auth)
+        headers = get_auth_headers(url, username, password)
 
         resp = requests.get(f"{url}/api/exports", headers=headers, timeout=10)
         resp.raise_for_status()
