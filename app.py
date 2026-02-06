@@ -92,10 +92,15 @@ def get_auth_headers(frigate_url, username=None, password=None):
     """Get headers for Frigate API requests, supporting both JWT and Basic Auth."""
     headers = {}
 
+    logger.info(
+        f"get_auth_headers called with username={bool(username)}, password={bool(password)}"
+    )
+
     # Try to get JWT token first
     token = get_frigate_auth_token(frigate_url, username, password)
     if token:
         headers["Authorization"] = f"Bearer {token}"
+        logger.info("Using JWT Bearer token")
         return headers
 
     # If no token but we have credentials, try Basic Auth (for reverse proxies)
@@ -104,7 +109,9 @@ def get_auth_headers(frigate_url, username=None, password=None):
 
         credentials = base64.b64encode(f"{username}:{password}".encode()).decode()
         headers["Authorization"] = f"Basic {credentials}"
-        logger.info("Using Basic Auth (no JWT token available)")
+        logger.info(f"Using Basic Auth for user: {username}")
+    else:
+        logger.info("No credentials provided, no auth headers")
 
     return headers
 
@@ -371,9 +378,15 @@ def get_cameras():
         # Get auth headers (JWT or Basic Auth)
         headers = get_auth_headers(url, username, password)
         logger.info(f"Auth headers present: {bool(headers)}")
+        if headers:
+            logger.info(
+                f"Using Authorization header: {headers['Authorization'][:20]}..."
+            )
 
         # Attempt to get config to list cameras
+        logger.info(f"Sending request to {url}/api/config")
         resp = requests.get(f"{url}/api/config", headers=headers, timeout=10)
+        logger.info(f"Response status: {resp.status_code}")
         resp.raise_for_status()
         config = resp.json()
         cameras = list(config.get("cameras", {}).keys())
