@@ -319,12 +319,23 @@ def get_cameras():
     url = data.get("url", "").rstrip("/")
     username = data.get("username")
     password = data.get("password")
+
+    logger.info(f"Connecting to Frigate at {url}")
+    logger.info(
+        f"Username provided: {bool(username)}, Password provided: {bool(password)}"
+    )
+
     try:
         # Get auth token if credentials provided
         auth_token = get_frigate_auth_token(url, username, password)
+        logger.info(f"Auth token obtained: {bool(auth_token)}")
+
         headers = {}
         if auth_token:
             headers["Authorization"] = f"Bearer {auth_token}"
+            logger.info("Using Bearer token for authentication")
+        else:
+            logger.info("No auth token, proceeding without authentication")
 
         # Attempt to get config to list cameras
         resp = requests.get(f"{url}/api/config", headers=headers, timeout=10)
@@ -332,7 +343,19 @@ def get_cameras():
         config = resp.json()
         cameras = list(config.get("cameras", {}).keys())
         return jsonify({"success": True, "cameras": cameras})
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 401:
+            logger.error(f"Authentication failed: {e}")
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Authentication failed. Please check your Frigate username and password, or ensure the Frigate URL is correct.",
+                }
+            )
+        logger.error(f"HTTP error: {e}")
+        return jsonify({"success": False, "error": str(e)})
     except Exception as e:
+        logger.error(f"Error connecting to Frigate: {e}")
         return jsonify({"success": False, "error": str(e)})
 
 

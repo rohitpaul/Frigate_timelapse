@@ -294,12 +294,14 @@
 
             try {
                 const auth = getAuthData();
+                console.log('Sending request with auth:', { url, username: auth.username ? '***' : null, password: auth.password ? '***' : null });
                 const response = await fetch('/api/cameras', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ url, ...auth })
                 });
                 const data = await response.json();
+                console.log('Response:', data);
 
                 if (data.success) {
                     const select = document.getElementById('cameraSelect');
