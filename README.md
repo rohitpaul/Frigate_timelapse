@@ -12,10 +12,11 @@ A web-based tool for generating high-speed timelapse videos from your Frigate NV
 - **Dual Input Modes**: Create new exports from specific time ranges or use existing Frigate exports
 - **Camera Selection**: Browse and select from available cameras in your Frigate instance
 - **Customizable Speed**: Adjust timelapse speed from 1x to 5000x
-- **Configurable FPS**: Set output framerate from 15 to 60 FPS
+- **Configurable FPS**: Set output video framerate from 15 to 60 FPS
 - **Real-time Progress**: Monitor export, download, and processing stages with visual feedback
 - **Job Management**: Cancel running jobs at any time
 - **Dockerized**: Ready-to-run Docker container with FFmpeg included
+- **Frigate Authentication**: Support for authenticated Frigate instances via JWT tokens
 
 ## Quick Start
 
@@ -69,6 +70,29 @@ python app.py
    - **FPS**: Output video framerate (15 - 60 FPS)
 4. **Generate**: Click "Generate Timelapse" and wait for processing
 5. **Download**: Once complete, download your timelapse video
+
+### Authentication (Optional)
+
+If your Frigate instance has authentication enabled (port 8971), you can provide credentials in two ways:
+
+**Via UI (Recommended):**
+- Click on the "Authentication (Optional)" section to expand it
+- Enter your Frigate username and password
+- These credentials are used per-session and not stored
+
+**Via Environment Variables:**
+Set the following environment variables when running the container:
+- `FRIGATE_USERNAME` - Your Frigate username
+- `FRIGATE_PASSWORD` - Your Frigate password
+
+```bash
+docker run -p 5000:5000 \
+  -e FRIGATE_USERNAME=admin \
+  -e FRIGATE_PASSWORD=yourpassword \
+  frigate-timelapse
+```
+
+The app will automatically obtain a JWT token from Frigate's `/login` endpoint and use it for all API calls.
 
 ## API Endpoints
 

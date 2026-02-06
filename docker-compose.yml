@@ -13,6 +13,9 @@ services:
       - PYTHONUNBUFFERED=1
       - FLASK_ENV=production
       - TEMP_DIR=/app/temp
+      # Optional: Set default Frigate credentials (or enter via UI)
+      # - FRIGATE_USERNAME=admin
+      # - FRIGATE_PASSWORD=your_password
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/"]
