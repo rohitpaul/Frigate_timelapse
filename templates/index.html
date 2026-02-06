@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frigate Timelapse Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .range-thumb::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #3b82f6;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-2xl bg-slate-800 rounded-2xl shadow-2xl overflow-hidden border border-slate-700">
+        <!-- Header -->
+        <div class="bg-slate-700/50 p-6 border-b border-slate-600">
+            <h1 class="text-2xl font-bold flex items-center gap-3">
+                <i class="fa-solid fa-clock-rotate-left text-blue-400"></i>
+                Frigate Timelapse
+            </h1>
+            <p class="text-slate-400 text-sm mt-1">Generate high-speed timelapses from your NVR footage</p>
+        </div>
+
+        <div class="p-6 space-y-6">
+
+            <!-- Connection Section -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="md:col-span-2">
+                    <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Frigate
+                        URL</label>
+                    <input type="text" id="frigateUrl" placeholder="http://192.168.1.50:5000"
+                        class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all">
+                </div>
+                <div class="flex items-end">
+                    <button onclick="fetchCameras()" id="connectBtn"
+                        class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 px-4 rounded-lg transition-colors flex justify-center items-center gap-2 text-sm">
+                        <i class="fa-solid fa-link"></i> Connect
+                    </button>
+                </div>
+            </div>
+
+            <!-- Configuration Section (Hidden initially) -->
+            <div id="configSection" class="space-y-6 opacity-50 pointer-events-none transition-all duration-300">
+
+                <!-- Mode Selection -->
+                <div class="flex p-1 bg-slate-900 rounded-lg">
+                    <button onclick="setMode('new')" id="modeNewBtn"
+                        class="flex-1 py-2 text-sm font-medium rounded-md transition-all bg-slate-700 text-white shadow">
+                        Create New
+                    </button>
+                    <button onclick="setMode('existing')" id="modeExistingBtn"
+                        class="flex-1 py-2 text-sm font-medium rounded-md transition-all text-slate-400 hover:text-white">
+                        Use Existing Export
+                    </button>
+                </div>
+
+                <!-- Create New Options -->
+                <div id="newExportOptions" class="space-y-6">
+                    <!-- Camera Select -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Select
+                            Camera</label>
+                        <div class="relative">
+                            <select id="cameraSelect"
+                                class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-sm appearance-none outline-none focus:border-blue-500">
+                                <option value="">Select a camera...</option>
+                            </select>
+                            <i class="fa-solid fa-chevron-down absolute right-4 top-3.5 text-slate-500 text-xs"></i>
+                        </div>
+                    </div>
+
+                    <!-- Time Range -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label
+                                class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Start
+                                Time</label>
+                            <input type="datetime-local" id="startTime"
+                                class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-300 outline-none focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">End
+                                Time</label>
+                            <input type="datetime-local" id="endTime"
+                                class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-300 outline-none focus:border-blue-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Existing Export Options -->
+                <div id="existingExportOptions" class="hidden space-y-6">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Select
+                                Export</label>
+                            <button onclick="fetchExports()" class="text-xs text-blue-400 hover:text-blue-300"><i
+                                    class="fa-solid fa-rotate"></i> Refresh</button>
+                        </div>
+                        <div class="relative">
+                            <select id="exportSelect"
+                                class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-sm appearance-none outline-none focus:border-blue-500">
+                                <option value="">Select an export...</option>
+                            </select>
+                            <i class="fa-solid fa-chevron-down absolute right-4 top-3.5 text-slate-500 text-xs"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sliders -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 pt-2">
+                    <!-- Speed -->
+                    <div>
+                        <div class="flex justify-between mb-2">
+                            <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Speed</label>
+                            <span class="text-blue-400 font-mono text-sm" id="speedValue">10x</span>
+                        </div>
+                        <input type="range" id="speedRange" min="1" max="5000" value="10" step="1"
+                            class="w-full h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer range-thumb">
+                        <div class="flex justify-between text-[10px] text-slate-500 mt-1">
+                            <span>1x</span>
+                            <span>2500x</span>
+                            <span>5000x</span>
+                        </div>
+                    </div>
+
+                    <!-- FPS -->
+                    <div>
+                        <div class="flex justify-between mb-2">
+                            <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Output
+                                FPS</label>
+                            <span class="text-blue-400 font-mono text-sm" id="fpsValue">30 FPS</span>
+                        </div>
+                        <input type="range" id="fpsRange" min="15" max="60" value="30" step="5"
+                            class="w-full h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer range-thumb">
+                    </div>
+                </div>
+
+                <!-- Action Button -->
+                <button onclick="startGeneration()" id="generateBtn"
+                    class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl shadow-lg transform active:scale-95 transition-all flex justify-center items-center gap-3">
+                    <i class="fa-solid fa-play"></i> Generate Timelapse
+                </button>
+            </div>
+
+            <!-- Progress Section (Hidden initially) -->
+            <div id="progressSection"
+                class="hidden space-y-3 bg-slate-900/50 p-4 rounded-xl border border-slate-700 border-dashed">
+                <div class="flex justify-between items-center">
+                    <span id="statusText" class="text-sm font-medium text-blue-400">Initializing...</span>
+                    <span id="percentText" class="text-xs text-slate-500">0%</span>
+                </div>
+                <div class="w-full bg-slate-700 rounded-full h-2.5 overflow-hidden">
+                    <div id="progressBar"
+                        class="bg-blue-500 h-2.5 rounded-full transition-all duration-500 relative overflow-hidden"
+                        style="width: 0%">
+                        <div class="absolute inset-0 bg-white/20 animate-[shimmer_2s_infinite]"></div>
+                    </div>
+                </div>
+                <div class="flex justify-center pt-2">
+                    <button onclick="cancelJob()" id="cancelBtn"
+                        class="text-xs text-red-400 hover:text-red-300 font-medium px-3 py-1 rounded hover:bg-red-500/10 transition-colors">
+                        <i class="fa-solid fa-stop"></i> Cancel
+                    </button>
+                </div>
+            </div>
+
+            <!-- Download Section -->
+            <div id="downloadSection" class="hidden">
+                <a id="downloadLink" href="#"
+                    class="block w-full bg-blue-600 hover:bg-blue-500 text-white text-center font-bold py-3 rounded-xl transition-all">
+                    <i class="fa-solid fa-download mr-2"></i> Download Timelapse
+                </a>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        let currentMode = 'new';
+        let currentJobId = null;
+
+        function setMode(mode) {
+            // ... existing setMode logic ... 
+            currentMode = mode;
+            const newBtn = document.getElementById('modeNewBtn');
+            const existBtn = document.getElementById('modeExistingBtn');
+            const newOptions = document.getElementById('newExportOptions');
+            const existOptions = document.getElementById('existingExportOptions');
+
+            if (mode === 'new') {
+                newBtn.className = 'flex-1 py-2 text-sm font-medium rounded-md transition-all bg-slate-700 text-white shadow';
+                existBtn.className = 'flex-1 py-2 text-sm font-medium rounded-md transition-all text-slate-400 hover:text-white';
+                newOptions.classList.remove('hidden');
+                existOptions.classList.add('hidden');
+            } else {
+                existBtn.className = 'flex-1 py-2 text-sm font-medium rounded-md transition-all bg-slate-700 text-white shadow';
+                newBtn.className = 'flex-1 py-2 text-sm font-medium rounded-md transition-all text-slate-400 hover:text-white';
+                newOptions.classList.add('hidden');
+                existOptions.classList.remove('hidden');
+
+                // Fetch exports if empty
+                if (document.getElementById('exportSelect').options.length <= 1) {
+                    fetchExports();
+                }
+            }
+        }
+
+        // Update slider values
+        document.getElementById('speedRange').addEventListener('input', (e) => {
+            document.getElementById('speedValue').textContent = e.target.value + 'x';
+        });
+        document.getElementById('fpsRange').addEventListener('input', (e) => {
+            document.getElementById('fpsValue').textContent = e.target.value + ' FPS';
+        });
+
+        // Store configuration in local storage for convenience
+        const storedUrl = localStorage.getItem('frigateUrl');
+        if (storedUrl) document.getElementById('frigateUrl').value = storedUrl;
+
+        async function fetchCameras() {
+            // ... existing fetchCameras ...
+            const url = document.getElementById('frigateUrl').value;
+            const btn = document.getElementById('connectBtn');
+            const originalText = btn.innerHTML;
+
+            if (!url) return alert('Please enter a Frigate URL');
+
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Connecting';
+            btn.disabled = true;
+
+            try {
+                const response = await fetch('/api/cameras', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    const select = document.getElementById('cameraSelect');
+                    select.innerHTML = '<option value="">Select a camera...</option>';
+                    data.cameras.forEach(cam => {
+                        const option = document.createElement('option');
+                        option.value = cam;
+                        option.textContent = cam.charAt(0).toUpperCase() + cam.slice(1);
+                        select.appendChild(option);
+                    });
+
+                    // Enable section
+                    const section = document.getElementById('configSection');
+                    section.classList.remove('opacity-50', 'pointer-events-none');
+                    localStorage.setItem('frigateUrl', url);
+
+                    // Set default dates
+                    const end = new Date();
+                    const start = new Date(end.getTime() - (60 * 60 * 1000)); // 1 hour ago
+
+                    // Format for datetime-local input (YYYY-MM-DDThh:mm)
+                    const format = (d) => new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+                    document.getElementById('startTime').value = format(start);
+                    document.getElementById('endTime').value = format(end);
+
+                } else {
+                    alert('Error connecting to Frigate: ' + data.error);
+                }
+            } catch (e) {
+                alert('Connection failed. Ensure the server can reach the Frigate URL.');
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        async function fetchExports() {
+            // ... existing fetchExports ...
+            const url = document.getElementById('frigateUrl').value;
+            const select = document.getElementById('exportSelect');
+
+            select.innerHTML = '<option>Loading...</option>';
+            select.disabled = true;
+
+            try {
+                const response = await fetch('/api/exports', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+                const data = await response.json();
+
+                select.innerHTML = '<option value="">Select an export...</option>';
+                select.disabled = false;
+
+                if (data.success) {
+                    // Sort descending by date
+                    data.exports.sort((a, b) => b.date - a.date);
+
+                    data.exports.forEach(exp => {
+                        const option = document.createElement('option');
+                        option.value = exp.id;
+                        const date = new Date(exp.date * 1000).toLocaleString();
+                        option.textContent = `${exp.name || 'Unnamed'} (${date}) - ${exp.camera}`;
+                        select.appendChild(option);
+                    });
+                } else {
+                    alert('Could not fetch exports: ' + data.error);
+                }
+            } catch (e) {
+                select.innerHTML = '<option value="">Error loading exports</option>';
+            }
+        }
+
+        async function startGeneration() {
+            // ... existing startGeneration ...
+            const config = {
+                frigateUrl: document.getElementById('frigateUrl').value,
+                speed: document.getElementById('speedRange').value,
+                fps: document.getElementById('fpsRange').value
+            };
+
+            if (currentMode === 'new') {
+                config.camera = document.getElementById('cameraSelect').value;
+                config.startTime = document.getElementById('startTime').value;
+                config.endTime = document.getElementById('endTime').value;
+
+                if (!config.camera) return alert('Please select a camera');
+            } else {
+                config.exportId = document.getElementById('exportSelect').value;
+                if (!config.exportId) return alert('Please select an export');
+            }
+
+            // UI Updates
+            document.getElementById('generateBtn').classList.add('hidden');
+            document.getElementById('progressSection').classList.remove('hidden');
+            document.getElementById('downloadSection').classList.add('hidden');
+            document.getElementById('cancelBtn').classList.remove('hidden');
+
+            try {
+                const response = await fetch('/api/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+                const data = await response.json();
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                currentJobId = data.jobId;
+                monitorProgress(data.jobId);
+
+            } catch (e) {
+                alert(e.message);
+                document.getElementById('generateBtn').classList.remove('hidden');
+                document.getElementById('progressSection').classList.add('hidden');
+            }
+        }
+
+        async function cancelJob() {
+            if (!currentJobId) return;
+            const btn = document.getElementById('cancelBtn');
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Cancelling...';
+            btn.disabled = true;
+
+            try {
+                await fetch(`/api/cancel/${currentJobId}`, { method: 'POST' });
+            } catch (e) {
+                console.error("Cancellation failed", e);
+            }
+        }
+
+        function monitorProgress(jobId) {
+            const interval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/api/status/${jobId}`);
+                    const status = await res.json();
+
+                    // Update UI
+                    const bar = document.getElementById('progressBar');
+                    const text = document.getElementById('statusText');
+                    const percent = document.getElementById('percentText');
+
+                    bar.style.width = status.progress + '%';
+                    percent.textContent = status.progress + '%';
+
+                    if (status.status === 'exporting') {
+                        text.textContent = 'Waiting for export...';
+                        text.className = 'text-sm font-medium text-orange-400';
+                        bar.className = 'bg-orange-500 h-2.5 rounded-full relative overflow-hidden transition-all duration-500';
+                    } else if (status.status === 'downloading') {
+                        text.textContent = 'Downloading raw footage...';
+                        text.className = 'text-sm font-medium text-yellow-400';
+                        bar.className = 'bg-yellow-500 h-2.5 rounded-full relative overflow-hidden transition-all duration-500';
+                    } else if (status.status === 'processing') {
+                        text.textContent = 'Rendering Timelapse (FFmpeg)...';
+                        text.className = 'text-sm font-medium text-purple-400';
+                        bar.className = 'bg-purple-500 h-2.5 rounded-full relative overflow-hidden transition-all duration-500';
+                    } else if (status.status === 'completed') {
+                        clearInterval(interval);
+                        text.textContent = 'Complete!';
+                        text.className = 'text-sm font-medium text-emerald-400';
+                        bar.className = 'bg-emerald-500 h-2.5 rounded-full relative overflow-hidden transition-all duration-500';
+
+                        const dlLink = document.getElementById('downloadLink');
+                        dlLink.href = `/download/${jobId}`;
+                        document.getElementById('downloadSection').classList.remove('hidden');
+                        document.getElementById('cancelBtn').classList.add('hidden');
+                    } else if (status.status === 'failed') {
+                        clearInterval(interval);
+                        text.textContent = 'Failed: ' + status.error;
+                        text.className = 'text-sm font-medium text-red-500';
+                        bar.className = 'bg-red-500 h-2.5 rounded-full relative overflow-hidden transition-all duration-500';
+                        document.getElementById('generateBtn').classList.remove('hidden');
+                        document.getElementById('cancelBtn').classList.add('hidden');
+                    } else if (status.status === 'cancelled') {
+                        clearInterval(interval);
+                        text.textContent = 'Cancelled';
+                        text.className = 'text-sm font-medium text-slate-400';
+                        bar.className = 'bg-slate-500 h-2.5 rounded-full relative overflow-hidden transition-all duration-500';
+                        document.getElementById('generateBtn').classList.remove('hidden');
+
+                        // Reset cancel button
+                        const btn = document.getElementById('cancelBtn');
+                        btn.innerHTML = '<i class="fa-solid fa-stop"></i> Cancel';
+                        btn.disabled = false;
+                        btn.classList.add('hidden');
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            }, 1000);
+        }
+    </script>
+    <style>
+        @keyframes shimmer {
+            0% {
+                transform: translateX(-100%);
+            }
+
+            100% {
+                transform: translateX(100%);
+            }
+        }
+    </style>
+</body>
+
+</html>
