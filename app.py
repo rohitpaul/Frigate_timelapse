@@ -20,8 +20,12 @@ app = Flask(__name__)
 TEMP_DIR = "/app/temp"
 os.makedirs(TEMP_DIR, exist_ok=True)
 
-# Logging
-logging.basicConfig(level=logging.INFO)
+# Logging - ensure output goes to stdout for Docker
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler()],
+)
 logger = logging.getLogger(__name__)
 
 # In-memory storage for job status (Use Redis for production/persistence)
@@ -522,4 +526,10 @@ def download_file(job_id):
 
 
 if __name__ == "__main__":
+    logger.info("=" * 60)
+    logger.info("Starting Frigate Timelapse Generator")
+    logger.info(f"TEMP_DIR: {TEMP_DIR}")
+    logger.info(f"Port: 5000")
+    logger.info("=" * 60)
+    print("Starting Frigate Timelapse Generator...", flush=True)
     app.run(host="0.0.0.0", port=5000)
