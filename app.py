@@ -50,15 +50,37 @@ def get_frigate_auth_token(frigate_url, username=None, password=None):
 
     try:
         login_url = f"{frigate_url.rstrip('/')}/login"
-        response = requests.post(
-            login_url, json={"user": username, "password": password}, timeout=10
-        )
-        response.raise_for_status()
-        token = response.json().get("token")
-        if token:
-            frigate_auth_tokens[frigate_url] = token
-            logger.info(f"Successfully authenticated with Frigate at {frigate_url}")
-        return token
+
+        # Try form data first (some proxies prefer this)
+        try:
+            response = requests.post(
+                login_url,
+                data={"user": username, "password": password},
+                timeout=10,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+            response.raise_for_status()
+            result = response.json()
+            token = result.get("token") or result.get("access_token")
+            if token:
+                frigate_auth_tokens[frigate_url] = token
+                logger.info(f"Successfully authenticated with Frigate at {frigate_url}")
+                return token
+        except Exception as form_error:
+            logger.warning(f"Form data login failed: {form_error}, trying JSON...")
+
+            # Fallback to JSON
+            response = requests.post(
+                login_url, json={"user": username, "password": password}, timeout=10
+            )
+            response.raise_for_status()
+            result = response.json()
+            token = result.get("token") or result.get("access_token")
+            if token:
+                frigate_auth_tokens[frigate_url] = token
+                logger.info(f"Successfully authenticated with Frigate at {frigate_url}")
+                return token
+
     except Exception as e:
         logger.error(f"Failed to authenticate with Frigate: {e}")
         return None
